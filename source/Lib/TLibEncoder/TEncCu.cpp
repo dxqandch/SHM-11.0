@@ -1,77 +1,65 @@
 /* The copyright in this software is being made available under the BSD
-* License, included below. This software may be subject to other third party
-* and contributor rights, including patent rights, and no such rights are
-* granted under this license.
-*
-* Copyright (c) 2010-2015, ITU/ISO/IEC
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*
-*  * Redistributions of source code must retain the above copyright notice,
-*    this list of conditions and the following disclaimer.
-*  * Redistributions in binary form must reproduce the above copyright notice,
-*    this list of conditions and the following disclaimer in the documentation
-*    and/or other materials provided with the distribution.
-*  * Neither the name of the ITU/ISO/IEC nor the names of its contributors may
-*    be used to endorse or promote products derived from this software without
-*    specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-* AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-* IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-* ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS
-* BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-* CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-* SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-* INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-* CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-* ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
-* THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ * License, included below. This software may be subject to other third party
+ * and contributor rights, including patent rights, and no such rights are
+ * granted under this license.
+ *
+ * Copyright (c) 2010-2015, ITU/ISO/IEC
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ *  * Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *  * Neither the name of the ITU/ISO/IEC nor the names of its contributors may
+ *    be used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
-/** \file     TEncCu.cpp
-\brief    Coding Unit (CU) encoder class
-*/
+ /** \file     TEncCu.cpp
+	 \brief    Coding Unit (CU) encoder class
+ */
 
 #include <stdio.h>
 #include "TEncTop.h"
 #include "TEncCu.h"
 #include "TEncAnalyze.h"
 #include "TLibCommon/Debug.h"
+
 #include <cmath>
 #include <algorithm>
-#include<fstream>
-#include<iostream>
 using namespace std;
-int ne = 0, tcnt = 0, fr = 0;
-int fdp[40][40], edp[40][40];
-float dp[4] = { 0 }, dp1 = 0;
-bool iscomplete = true;
-#define depth 0
-int cnt = 0;
-int ctunum = 0;
-int Strides[] = { 16, 8, 4, 2 };
-bool flag1 = false;
-vector<float>feature;
-vector<double>feature2;
-vector<double>sample0;
-int x, y;
-int r0 = -1;
+
+
 //! \ingroup TLibEncoder
 //! \{
+
 // ====================================================================================================================
 // Constructor / destructor / create / destroy
 // ====================================================================================================================
 
 /**
-\param    uhTotalDepth  total number of allowable depth  //允许深度总数
-\param    uiMaxWidth    largest CU width      最大CU宽度
-\param    uiMaxHeight   largest CU height     最大CU高度
-\param    chromaFormat  chroma format
-*/
-Void TEncCu::create(UChar uhTotalDepth, UInt uiMaxWidth, UInt uiMaxHeight, ChromaFormat chromaFormat)  //create internal buffers
+ \param    uhTotalDepth  total number of allowable depth
+ \param    uiMaxWidth    largest CU width
+ \param    uiMaxHeight   largest CU height
+ \param    chromaFormat  chroma format
+ */
+Void TEncCu::create(UChar uhTotalDepth, UInt uiMaxWidth, UInt uiMaxHeight, ChromaFormat chromaFormat)
 {
 	Int i;
 
@@ -113,7 +101,7 @@ Void TEncCu::create(UChar uhTotalDepth, UInt uiMaxWidth, UInt uiMaxHeight, Chrom
 	m_cuChromaQpOffsetIdxPlus1 = 0;
 	m_bFastDeltaQP = false;
 
-	// initialize partition order.初始化分割顺序。
+	// initialize partition order.
 	UInt* piTmp = &g_auiZscanToRaster[0];
 	initZscanToRaster(m_uhTotalDepth, 1, 0, piTmp);
 	initRasterToZscan(uiMaxWidth, uiMaxHeight, m_uhTotalDepth);
@@ -211,11 +199,10 @@ Void TEncCu::destroy()
 		delete[] m_ppcOrigYuv;
 		m_ppcOrigYuv = NULL;
 	}
-
 }
 
 /** \param    pcEncTop      pointer of encoder class
-*/
+ */
 Void TEncCu::init(TEncTop* pcEncTop)
 {
 	m_pcEncCfg = pcEncTop;
@@ -241,16 +228,12 @@ Void TEncCu::init(TEncTop* pcEncTop)
 // ====================================================================================================================
 
 /**
-\param  pCtu pointer of CU data class
-*/
+ \param  pCtu pointer of CU data class
+ */
 Void TEncCu::compressCtu(TComDataCU* pCtu)
 {
-	iscomplete = true;
-	feature.clear();
-	feature2.clear();
-	flag1 = false;
-	// initialize CU data（初始化CU单元，在编码前创造内部缓冲器和初始值）
-	m_ppcBestCU[0]->initCtu(pCtu->getPic(), pCtu->getCtuRsAddr());       //该函数传入的是Pic和CTU参数，getCtuRsAddr()表示利用父CU的地址和偏移可以计算出当前CU的地址
+	// initialize CU data
+	m_ppcBestCU[0]->initCtu(pCtu->getPic(), pCtu->getCtuRsAddr());
 	m_ppcTempCU[0]->initCtu(pCtu->getPic(), pCtu->getCtuRsAddr());
 
 #if N0383_IL_CONSTRAINED_TILE_SETS_SEI
@@ -259,136 +242,19 @@ Void TEncCu::compressCtu(TComDataCU* pCtu)
 #endif
 
 	// analysis of CU
-	int k = 0;
 	DEBUG_STRING_NEW(sDebug)
-		if (m_ppcBestCU[0]->getPic()->getLayerId() > 0)
-		{
-			k = (ne / m_ppcBestCU[0]->getPic()->getFrameWidthInCtus() != 0) && (ne % m_ppcBestCU[0]->getPic()->getFrameWidthInCtus() != 0) && ((ne + 1) % m_ppcBestCU[0]->getPic()->getFrameWidthInCtus() != 0);
-			if (k)
-			{
-				if (fr > 0)
-				{
-					const float dd[4][4] = { {65.4777,24.2592,7.15004,3.11309},{23.4784,45.9987,17.1118,13.3924},{14.3684,35.7004,25.2922,23.9471},{13.8702,28.0005,17.961,40.9575} };
-					const float ave[4] = { 32.5502,34.0932,15.5657,17.7909 };
-					const float dep[4] = { 29.8235,33.5833,15.2797,21.3135 };
-					float pp[4] = { 1 }, m = 1, n = 1, s = 0;
-					int a[5] = { 0 };
-					int i = 0, j = 0;
-					if (y - 1 < 0)
-					{
-						edp[x][y - 1] = 0;
-					}
-					a[0] = fdp[x][y];                        //获取当前CU的深度和本帧参考编码单元深度和前一帧参考编码单元深度
-					a[1] = edp[x - 1][y - 1];                    //左上相邻
-					a[2] = edp[x - 1][y];                      //上相邻
-					a[3] = edp[x - 1][y + 1];                    //右上相邻
-					a[4] = edp[x][y - 1];                      //左相邻
-					ofstream ofs;
-					ofs.open("depth.txt", ios::app);
-					ofs << a[0] << "\t" << edp[x][y] << "\t" << a[1] << "\t" << a[2] << "\t" << a[3] << "\t" << a[4] << endl;
-					for (i = 0; i < 4; i++)
-					{
-						m = n = 1;
-						for (j = 0; j < 5; j++)
-						{
-							m = m * dd[i][a[j]];
-							n = n * ave[a[j]];
-						}
-						pp[i] = m * dep[i] / n;
 
-					}
-					for (i = 0; i < 4; i++)
-						s = s + pp[i];
-					for (i = 0; i < 4; i++)
-					{
-						dp[i] = pp[i] / s;
-					}
-					dp1 = dp[0] * 0 + dp[1] * 1 + dp[2] * 2 + dp[3] * 3;
-					feature2.push_back(dp1);
-				}
-			}
-			if (!(k - 1))
-			{
-				if (fr > 0)
-				{
-					flag1 = true;
-				}
-			}
-		}
-	if (m_ppcBestCU[0]->getPic()->getLayerId() > 0)
-	{
-		if (flag1)
-		{
-			ofstream ofs;
-			ofs.open("depth1.txt", ios::app);
-			ofs << r0 << endl;
-		}
-	}
-	xCompressCU(m_ppcBestCU[0], m_ppcTempCU[0], 0 DEBUG_STRING_PASS_INTO(sDebug));
+		xCompressCU(m_ppcBestCU[0], m_ppcTempCU[0], 0 DEBUG_STRING_PASS_INTO(sDebug));
 	DEBUG_STRING_OUTPUT(std::cout, sDebug)
 
-		/*************************深度0*********************************/
-		if (m_ppcBestCU[0]->getPic()->getLayerId() > 0)
-		{
-			int max = 0, m = -1, n = 0, d[16][16] = { 0 }, a[5] = { 0 };
-			int iCount = 0;
-			int iWidthInpart = MAX_CU_SIZE >> 2;                                            //16
-			for (int i = 0; i < pCtu->getTotalNumPart(); i++)
-			{
-				if ((iCount & (iWidthInpart - 1)) == 0)
-				{
-					m++;
-					n = 0;
-				}
-				d[m][n++] = pCtu->getDepth(g_auiRasterToZscan[i]);                        //获取所有大小的块
-				iCount++;
-			}
-			int strides = Strides[depth];
-			int cnt_ctus = m_ppcBestCU[0]->getPic()->getFrameWidthInCtus();		// 一行中32*32CU的个数
-			for (int i = 0; i < 16; i = i + strides)
-			{
-				for (int j = 0; j < 16; j = j + strides)
-				{
-					max = 0;
-					for (m = i; m < i + strides; m++)
-					{
-						for (n = j; n < j + strides; n++)
-						{
-							if (max < d[m][n]);
-							max = d[m][n];
-						}
-					}
-					x = ne / cnt_ctus;
-					y = ne % cnt_ctus;
-					edp[x][y] = max;
-					r0 = max;
-
-				}
-			}
-			ne++;
-			if (ne % (m_ppcBestCU[0]->getPic()->getFrameWidthInCtus() * m_ppcBestCU[0]->getPic()->getFrameHeightInCtus()) == 0)   //一帧做完了
-			{
-				for (int i = 0; i < (m_ppcBestCU[0]->getPic()->getFrameHeightInCtus()); i++)
-				{
-					for (int j = 0; j < (m_ppcBestCU[0]->getPic()->getFrameWidthInCtus()); j++)
-					{
-						fdp[i][j] = edp[i][j];
-					}
-				}
-				ne = 0;
-				fr++;
-			}
-		}
-
-	/****************************************************************************************************************/
 #if ADAPTIVE_QP_SELECTION
-	if (m_pcEncCfg->getUseAdaptQpSelect())
-	{
-		if (pCtu->getSlice()->getSliceType() != I_SLICE) //IIII
+		if (m_pcEncCfg->getUseAdaptQpSelect())
 		{
-			xCtuCollectARLStats(pCtu);
+			if (pCtu->getSlice()->getSliceType() != I_SLICE) //IIII
+			{
+				xCtuCollectARLStats(pCtu);
+			}
 		}
-	}
 #endif
 
 #if N0383_IL_CONSTRAINED_TILE_SETS_SEI
@@ -396,7 +262,7 @@ Void TEncCu::compressCtu(TComDataCU* pCtu)
 #endif
 }
 /** \param  pCtu  pointer of CU data class
-*/
+ */
 Void TEncCu::encodeCtu(TComDataCU* pCtu)
 {
 	if (pCtu->getSlice()->getPPS()->getUseDQP())
@@ -491,7 +357,7 @@ Void TEncCu::deriveTestModeAMP(TComDataCU* pcBestCU, PartSize eParentPartSize, B
 // Protected member functions
 // ====================================================================================================================
 /** Compress a CU block recursively with enabling sub-CTU-level delta QP
-*  - for loop of QP value to compress the current CU with all possible QP
+ *  - for loop of QP value to compress the current CU with all possible QP
 */
 #if AMP_ENC_SPEEDUP
 Void TEncCu::xCompressCU(TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, const UInt uiDepth DEBUG_STRING_FN_DECLARE(sDebug_), PartSize eParentPartSize)
@@ -507,382 +373,8 @@ Void TEncCu::xCompressCU(TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, const U
 	// These are only used if getFastDeltaQp() is true
 	const UInt fastDeltaQPCuMaxSize = Clip3(sps.getMaxCUHeight() >> sps.getLog2DiffMaxMinCodingBlockSize(), sps.getMaxCUHeight(), 32u);
 
-	// get Original YUV data from picture(从图像中获取原始YUV信息)
+	// get Original YUV data from picture
 	m_ppcOrigYuv[uiDepth]->copyFromPicYuv(pcPic->getPicYuvOrg(), rpcBestCU->getCtuRsAddr(), rpcBestCU->getZorderIdxInCtu());
-
-
-	/**************************************************************获取YUV的像素信息(特征值)*******************************************************************************/
-	if (rpcBestCU->getPic()->getLayerId() > 0)
-	{
-		if (uiDepth == depth)                                              //判断深度0一个块是不是完整的
-		{
-			int i, j, x1 = 0, p[64][64];
-			UInt uiPartSize = rpcBestCU->getWidth(0);
-			const ComponentID compID = ComponentID(0);
-			const Int Width = uiPartSize >> m_ppcOrigYuv[uiDepth]->getComponentScaleX(compID);
-			const Pel* pSrc0 = m_ppcOrigYuv[uiDepth]->getAddr(compID, 0, Width);
-			const Int  iSrc0Stride = m_ppcOrigYuv[uiDepth]->getStride(compID);
-			int cnt1 = 0;
-			int cnt2 = 0;
-			for (i = 0; i < Width; i++)
-			{
-				for (j = 0; j < Width; j++)
-				{
-					p[i][j] = pSrc0[j];
-					if (j == Width - 1 && p[i][j] == 0)
-						cnt1++;
-					if (i == Width - 1 && p[i][j] == 0)
-						cnt2++;
-				}
-				pSrc0 += iSrc0Stride;
-				if (cnt1 >= Width || cnt2 >= Width)
-				{
-					iscomplete = false;
-				}
-			}
-		}
-		/*if (uiDepth == 0)                                      //判断深度1一个块是不是完整的
-		{
-			int i, j;
-			UInt uiPartSize = rpcBestCU->getWidth(0);
-			const ComponentID compID = ComponentID(0);
-			const Int Width = uiPartSize >> m_ppcOrigYuv[uiDepth]->getComponentScaleX(compID);
-			const Pel* pSrc0 = m_ppcOrigYuv[uiDepth]->getAddr(compID, 0, Width);
-			const Int  iSrc0Stride = m_ppcOrigYuv[uiDepth]->getStride(compID);
-			int p[64][64];
-			int cnt1 = 0;
-			for (i = 0; i < Width; i++)
-			{
-				for (j = 0; j < Width; j++)
-				{
-					p[i][j] = pSrc0[j];
-					if (p[i][j] == 0)
-						cnt1++;
-				}
-				pSrc0 += iSrc0Stride;
-			}
-			if (cnt1 >= 64)
-				iscomplete = false;
-		}*/
-		if (uiDepth == depth)
-		{
-			if (flag1)
-			{
-				int n = 0, n1 = 0, i, j;
-				float  s = 0, s1 = 0, s2 = 0, s3 = 0, s4 = 0, s5 = 0, s6 = 0, s7 = 0, s8 = 0, D1 = 0;
-				float  subsd[12] = { 0 };
-				float x1 = 0, u = 0, u1 = 0, u2 = 0, u3 = 0, u4 = 0, ave = 0, ave1 = 0, ave2 = 0, ave3 = 0, ave4 = 0, nmse1 = 0, sd1 = 0, sd2 = 0, sd3 = 0;
-				float var1 = 0, var2 = 0, var3 = 0, var4 = 0, var5 = 0, var6 = 0, QP = 0, nmse = 0;
-				int dx[4] = { 0 }, dy[4] = { 0 }, dtx[4] = { 0 }, dty[4] = { 0 };
-				int avegd[4] = { 0 }, aveGDN[4] = { 0 };
-				float aveggd[4] = { 0 };
-				float m = 0, sumgd = 0;
-				float subgd = 0;
-				UInt uiPartSize = rpcBestCU->getWidth(0);
-				const ComponentID compID = ComponentID(0);
-				const Int Width = uiPartSize >> m_ppcOrigYuv[uiDepth]->getComponentScaleX(compID);
-				const Pel* pSrc0 = m_ppcOrigYuv[uiDepth]->getAddr(compID, 0, Width);
-				const Int  iSrc0Stride = m_ppcOrigYuv[uiDepth]->getStride(compID);
-				int p[64][64], p1[32][32], p2[32][32], p3[32][32], p4[32][32], p5[32][32], p6[64][64];
-				int l1[64][64];
-				map<int, double> ent;
-				for (i = 0; i < Width; i++)
-				{
-					for (j = 0; j < Width; j++)
-					{
-						p[i][j] = pSrc0[j];
-						x1 += pSrc0[j];
-						ave += pSrc0[j];
-						ent[p[i][j]]++;
-					}
-					pSrc0 += iSrc0Stride;
-				}
-				for (i = 0; i < Width; i++)
-				{
-					for (j = 0; j < Width; j++)
-					{
-						p6[i][j] = p[i][j];
-					}
-				}
-				n = Width * Width;
-				u = x1 / n;
-				x1 = 0;
-				/*****方差****/
-				for (i = 0; i < Width; i++)
-				{
-					for (j = 0; j < Width; j++)
-					{
-						x1 = x1 + pow((p[i][j] - u), 2);
-					}
-				}
-				s = x1 / n;
-				if (s > 0)
-				{
-					s1 = log10(s);
-				}
-				else
-					s1 = 0;
-				/*****信息熵****/
-				double ents = 0, allent = 0;
-				map<int, double>::iterator iter;
-				for (iter = ent.begin(); iter != ent.end(); iter++)
-				{
-
-					iter->second /= (n * 1.0);
-					ents = (-1) * (iter->second) * (log(iter->second) / log(2.0));
-					allent += ents;
-				}
-				if (allent > 0)
-				{
-					s2 = log10(allent);
-				}
-				else
-					s2 = 0;
-				/****子块复杂度方差*****/
-				//子块复杂度0
-				for (i = 0; i < Width / 2; i++)
-				{
-					for (j = 0; j < Width / 2; j++)
-					{
-						p1[i][j] = p[i][j];
-						ave1 += p1[i][j];
-						subsd[0] += pow(p[i][j], 2);
-						subsd[1] += p[i][j];
-					}
-				}
-				n1 = (Width / 2) * (Width / 2);                                   //当前子CU的大小
-				u1 = ave1 / n1;                                              //像素的平均值    
-				subsd[0] = subsd[0] / n1;
-				subsd[1] = subsd[1] / n1;
-				subsd[2] = pow(abs(subsd[0] - pow(subsd[1], 2)), 0.5);
-				ave1 = 0;
-				for (i = 0; i < Width / 2; i++)
-				{
-					for (j = 0; j < Width / 2; j++)
-					{
-						ave1 = ave1 + pow((p1[i][j] - u1), 2);                //该子CU的像素方差
-					}
-				}
-				var1 = ave1 / n1;                                         //归一化方差  
-				//子块复杂度1
-				for (i = Width / 2; i < Width; i++)
-				{
-					for (j = 0; j < Width / 2; j++)
-					{
-						p2[i][j] = p[i][j];
-						ave2 += p2[i][j];
-						subsd[3] += pow(p[i][j], 2);
-						subsd[4] += p[i][j];
-					}
-				}
-				n1 = (Width / 2) * (Width / 2);                                   //当前子CU的大小                
-				u2 = ave2 / n1;                                              //像素的平均值    
-				subsd[3] = subsd[3] / n1;
-				subsd[4] = subsd[4] / n1;
-				subsd[5] = pow(abs(subsd[3] - pow(subsd[4], 2)), 0.5);
-				ave2 = 0;
-				for (i = Width / 2; i < Width; i++)
-				{
-					for (j = 0; j < Width / 2; j++)
-					{
-						ave2 = ave2 + pow((p2[i][j] - u2), 2);                //该子CU的像素方差
-					}
-				}
-				var2 = ave2 / n1;                                         //归一化方差  
-				//子块复杂度2
-				for (i = 0; i < Width / 2; i++)
-				{
-					for (j = Width / 2; j < Width; j++)
-					{
-						p3[i][j] = p[i][j];
-						ave3 += p3[i][j];
-						subsd[6] += pow(p[i][j], 2);
-						subsd[7] += p[i][j];
-					}
-				}
-				n1 = (Width / 2) * (Width / 2);                                   //当前子CU的大小
-				u3 = ave3 / n1;                                              //像素的平均值    
-				subsd[6] = subsd[6] / n1;
-				subsd[7] = subsd[7] / n1;
-				subsd[8] = pow(abs(subsd[6] - pow(subsd[7], 2)), 0.5);
-				ave3 = 0;
-				for (i = 0; i < Width / 2; i++)
-				{
-					for (j = Width / 2; j < Width; j++)
-					{
-						ave3 = ave3 + pow((p3[i][j] - u3), 2);                //该子CU的像素方差
-					}
-				}
-				var3 = ave3 / n1;                                         //归一化方差  
-				//子块复杂度3
-				for (i = Width / 2; i < Width; i++)
-				{
-					for (j = Width / 2; j < Width; j++)
-					{
-						p4[i][j] = p[i][j];
-						ave4 += p4[i][j];
-						subsd[9] += pow(p[i][j], 2);
-						subsd[10] += p[i][j];
-					}
-				}
-				n1 = (Width / 2) * (Width / 2);                                   //当前子CU的大小
-				u4 = ave4 / n1;                                              //像素的平均值 
-				subsd[9] = subsd[9] / n1;
-				subsd[10] = subsd[10] / n1;
-				subsd[11] = pow(abs(subsd[9] - pow(subsd[11], 2)), 0.5);
-				D1 = subsd[0] > subsd[1] ? subsd[0] : subsd[1] > subsd[2] ? subsd[1] : subsd[2] > subsd[3] ? subsd[2] : subsd[3];
-				s6 = log10(D1);
-				ave4 = 0;
-				for (i = Width / 2; i < Width; i++)
-				{
-					for (j = Width / 2; j < Width; j++)
-					{
-						ave4 = ave4 + pow((p4[i][j] - u4), 2);                //该子CU的像素方差
-					}
-				}
-				var4 = ave4 / n1;                                         //归一化方差  
-				//子块复杂度4
-				var5 = (var1 + var2 + var3 + var4) / 4;
-				var6 = (pow((var1 - var5), 2) + pow((var2 - var5), 2) + pow((var3 - var5), 2) + pow((var4 - var5), 2)) / 4;
-				if (var6 > 0)
-				{
-					s3 = log(var6) / log(10);
-				}
-				else
-					s3 = 0;
-				/*****得到量化QP****/
-				QP = m_ppcBestCU[0]->getQP(0);
-				s4 = log10(QP);
-
-				/****计算NMSE(相邻均方误差)****/
-				int sum = 0, num = 0;
-				for (i = 1; i < Width - 1; i++)
-				{
-					for (j = 1; j < Width - 1; j++)
-					{
-						l1[i][j] = (p6[i - 1][j - 1] + p6[i - 1][j] + p6[i - 1][j + 1] + p6[i][j - 1] + p6[i][j + 1] + p6[i + 1][j - 1] + p6[i + 1][j] + p6[i + 1][j + 1]) / 8;
-						nmse1 += pow((p6[i][j] - l1[i][j]), 2);
-					}
-				}
-				nmse = nmse1 / ((Width - 2) * (Width - 2));                       //相邻均方误差
-				if (nmse > 0)
-				{
-					s5 = log10(nmse);
-				}
-				else
-					s5 = 0;
-				nmse1 = 0;
-				/****标准差****/
-				for (i = 0; i < Width - 1; i++)
-				{
-					for (j = 0; j < Width - 1; j++)
-					{
-						sd1 += pow(p[i][j], 2);
-						sd2 += p[i][j];
-					}
-				}
-				sd1 = sd1 / ((Width - 1) * (Width - 1));
-				sd2 = sd2 / ((Width - 1) * (Width - 1));
-				sd3 = pow(sd1 - pow(sd2, 2), 0.5);
-				s7 = log10(sd3);
-				/****平均非零梯度*****/
-				//子复杂度0
-				avegd[0] = 0;
-				for (i = 1; i < (Width / 2) - 1; i++)
-				{
-					for (j = 1; j < (Width / 2) - 1; j++)
-					{
-						dx[0] = p[i][j - 1] - p[i][j + 1];
-						dy[0] = p[i - 1][j] - p[i + 1][j];
-						dtx[0] = p[i - 1][j - 1] - p[i + 1][j + 1];
-						dty[0] = p[i - 1][j + 1] - p[i + 1][j - 1];
-						aveGDN[0] = abs(dx[0]) + abs(dy[0]) + abs(dtx[0]) + abs(dty[0]);
-						avegd[0] += aveGDN[0];
-					}
-				}
-				aveggd[0] = avegd[0] / ((n1 - 2) * 1.0);
-				//子块1
-				avegd[1] = 0;
-				for (i = (Width / 2) + 1; i < Width - 1; i++)
-				{
-					for (j = 1; j < (Width / 2) - 1; j++)
-					{
-
-						dx[1] = p[i][j - 1] - p[i][j + 1];
-						dy[1] = p[i - 1][j] - p[i + 1][j];
-						dtx[1] = p[i - 1][j - 1] - p[i + 1][j + 1];
-						dty[1] = p[i - 1][j + 1] - p[i + 1][j - 1];
-						aveGDN[1] = abs(dx[1]) + abs(dy[1]) + abs(dtx[1]) + abs(dty[1]);
-						avegd[1] += aveGDN[1];
-					}
-				}
-				aveggd[1] = avegd[1] / (n1 - 2);
-				//子块复杂度2
-				avegd[2] = 0;
-				for (i = 1; i < (Width / 2) - 1; i++)
-				{
-					for (j = (Width / 2) + 1; j < Width - 1; j++)
-					{
-
-						dx[2] = p[i][j - 1] - p[i][j + 1];
-						dy[2] = p[i - 1][j] - p[i + 1][j];
-						dtx[2] = p[i - 1][j - 1] - p[i + 1][j + 1];
-						dty[2] = p[i - 1][j + 1] - p[i + 1][j - 1];
-						aveGDN[2] = abs(dx[2]) + abs(dy[2]) + abs(dtx[2]) + abs(dty[2]);
-						avegd[2] += aveGDN[2];
-					}
-				}
-				aveggd[2] = avegd[2] / (n1 - 2);
-				avegd[3] = 0;
-				for (i = (Width / 2) + 1; i < Width - 1; i++)
-				{
-					for (j = (Width / 2) + 1; j < (Width - 1); j++)
-					{
-
-						dx[3] = p[i][j - 1] - p[i][j + 1];
-						dy[3] = p[i - 1][j] - p[i + 1][j];
-						dtx[3] = p[i - 1][j - 1] - p[i + 1][j + 1];
-						dty[3] = p[i - 1][j + 1] - p[i + 1][j - 1];
-						aveGDN[3] = abs(dx[3]) + abs(dy[3]) + abs(dtx[3]) + abs(dty[3]);
-						avegd[3] += aveGDN[3];
-					}
-				}
-				aveggd[3] = avegd[3] / (n1 - 2);
-				m = (aveggd[0] + aveggd[1] + aveggd[2] + aveggd[3]) / 4.0;
-				for (int i = 0; i < 4; i++) {
-					sumgd += pow((aveggd[i] - m), 2);
-				}
-				subgd = sumgd / 4.0;
-				if (subgd > 0)
-				{
-					s8 = log10(subgd);
-				}
-				else
-					s8 = 0;
-				//打印
-				feature2.push_back(s1);
-				feature2.push_back(s2);
-				feature2.push_back(s3);
-				feature2.push_back(s4);
-				feature2.push_back(s5);
-				/*feature2.push_back(s6);
-				feature2.push_back(s7);*/
-				feature2.push_back(s8);
-				sample0 = feature2;
-				ofstream ofs1;
-				ofs1.open("features.txt", ios::app);
-				ofs1 << setiosflags(ios::fixed) << setprecision(3);
-				for (i = 0; i < feature2.size(); i++)
-				{
-					ofs1 << feature2[i] << "\t";
-				}
-				ofs1 << endl;
-				feature2.clear();
-			}
-		}
-	}
-
-	/*****************************************************************************************************************/
 
 	// variable for Cbf fast mode PU decision
 	Bool    doNotBlockPu = true;
@@ -893,17 +385,17 @@ Void TEncCu::xCompressCU(TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, const U
 	const UInt uiTPelY = rpcBestCU->getCUPelY();
 	const UInt uiBPelY = uiTPelY + rpcBestCU->getHeight(0) - 1;
 	const UInt uiWidth = rpcBestCU->getWidth(0);
-	//// 传入当前CU和深度，计算对当前CU的QP；如果不是对每个CU自适应的改变QP，则直接用之前slice算出的QP
-	Int iBaseQP = xComputeQP(rpcBestCU, uiDepth);   //xComputeQP得出量化步长
-	Int iMinQP;   //最小的量化步长
-	Int iMaxQP;   //最大的量化步长
+
+	Int iBaseQP = xComputeQP(rpcBestCU, uiDepth);
+	Int iMinQP;
+	Int iMaxQP;
 	Bool isAddLowestQP = false;
 
 	const UInt numberValidComponents = rpcBestCU->getPic()->getNumberValidComponents();
 
-	if (uiDepth <= pps.getMaxCuDQPDepth())    //为了获得量化步长的范围（iMinQP，iMaxQP）
+	if (uiDepth <= pps.getMaxCuDQPDepth())
 	{
-		Int idQP = m_pcEncCfg->getMaxDeltaQP();  //获得最大绝对增量QP
+		Int idQP = m_pcEncCfg->getMaxDeltaQP();
 		iMinQP = Clip3(-sps.getQpBDOffset(CHANNEL_TYPE_LUMA), MAX_QP, iBaseQP - idQP);
 		iMaxQP = Clip3(-sps.getQpBDOffset(CHANNEL_TYPE_LUMA), MAX_QP, iBaseQP + idQP);
 	}
@@ -956,7 +448,6 @@ Void TEncCu::xCompressCU(TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, const U
 		else
 		{
 #endif
-
 #if ENCODER_FAST_MODE
 			Bool testInter = true;
 			if (rpcBestCU->getPic()->getLayerId() > 0)
@@ -984,17 +475,17 @@ Void TEncCu::xCompressCU(TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, const U
 				if (pcSlice->getUseChromaQpAdj())
 				{
 					/* Pre-estimation of chroma QP based on input block activity may be performed
-					* here, using for example m_ppcOrigYuv[uiDepth] */
-					/* To exercise the current code, the index used for adjustment is based on
-					* block position
-					*/
+					 * here, using for example m_ppcOrigYuv[uiDepth] */
+					 /* To exercise the current code, the index used for adjustment is based on
+					  * block position
+					  */
 					Int lgMinCuSize = sps.getLog2MinCodingBlockSize() +
 						std::max<Int>(0, sps.getLog2DiffMaxMinCodingBlockSize() - Int(pps.getPpsRangeExtension().getDiffCuChromaQpOffsetDepth()));
 					m_cuChromaQpOffsetIdxPlus1 = ((uiLPelX >> lgMinCuSize) + (uiTPelY >> lgMinCuSize)) % (pps.getPpsRangeExtension().getChromaQpOffsetListLen() + 1);
 				}
 
 				rpcTempCU->initEstData(uiDepth, iQP, bIsLosslessMode);
-				/*******************************************帧间****************************************/
+
 				// do inter modes, SKIP and 2Nx2N
 #if ENCODER_FAST_MODE == 1
 				if (rpcBestCU->getSlice()->getSliceType() != I_SLICE && testInter)
@@ -1199,7 +690,7 @@ Void TEncCu::xCompressCU(TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, const U
 #endif
 						}
 					}
-					/******************************************************帧内************************************************************/
+
 					// do normal intra modes
 					// speedup for inter frames
 					Double intraCost = 0.0;
@@ -1228,7 +719,7 @@ Void TEncCu::xCompressCU(TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, const U
 							}
 						}
 					}
-					/*****************************************************************PCM***********************************************************/
+
 					// test PCM
 					if (sps.getUsePCM()
 						&& rpcTempCU->getWidth(0) <= (1 << sps.getPCMLog2MaxSize())
@@ -1440,7 +931,7 @@ Void TEncCu::xCompressCU(TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, const U
 			}
 
 			xCheckBestMode(rpcBestCU, rpcTempCU, uiDepth DEBUG_STRING_PASS_INTO(sDebug) DEBUG_STRING_PASS_INTO(sTempDebug) DEBUG_STRING_PASS_INTO(false)); // RD compare current larger prediction
-			// with sub partitioned prediction.
+																																							 // with sub partitioned prediction.
 		}
 	}
 
@@ -1462,11 +953,11 @@ Void TEncCu::xCompressCU(TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, const U
 }
 
 /** finish encoding a cu and handle end-of-slice conditions
-* \param pcCU
-* \param uiAbsPartIdx
-* \param uiDepth
-* \returns Void
-*/
+ * \param pcCU
+ * \param uiAbsPartIdx
+ * \param uiDepth
+ * \returns Void
+ */
 Void TEncCu::finishCU(TComDataCU* pcCU, UInt uiAbsPartIdx)
 {
 	TComPic* pcPic = pcCU->getPic();
@@ -1487,10 +978,10 @@ Void TEncCu::finishCU(TComDataCU* pcCU, UInt uiAbsPartIdx)
 }
 
 /** Compute QP for each CU
-* \param pcCU Target CU
-* \param uiDepth CU depth
-* \returns quantization parameter
-*/
+ * \param pcCU Target CU
+ * \param uiDepth CU depth
+ * \returns quantization parameter
+ */
 Int TEncCu::xComputeQP(TComDataCU* pcCU, UInt uiDepth)
 {
 	Int iBaseQp = pcCU->getSlice()->getSliceQp();
@@ -1516,11 +1007,11 @@ Int TEncCu::xComputeQP(TComDataCU* pcCU, UInt uiDepth)
 }
 
 /** encode a CU block recursively
-* \param pcCU
-* \param uiAbsPartIdx
-* \param uiDepth
-* \returns Void
-*/
+ * \param pcCU
+ * \param uiAbsPartIdx
+ * \param uiDepth
+ * \returns Void
+ */
 Void TEncCu::xEncodeCU(TComDataCU* pcCU, UInt uiAbsPartIdx, UInt uiDepth)
 {
 	TComPic* const pcPic = pcCU->getPic();
@@ -1751,10 +1242,10 @@ Int  TEncCu::updateCtuDataISlice(TComDataCU* pCtu, Int width, Int height)
 }
 
 /** check RD costs for a CU block encoded with merge
-* \param rpcBestCU
-* \param rpcTempCU
-* \param earlyDetectionSkipMode
-*/
+ * \param rpcBestCU
+ * \param rpcTempCU
+ * \param earlyDetectionSkipMode
+ */
 #if HIGHER_LAYER_IRAP_SKIP_FLAG
 Void TEncCu::xCheckRDCostMerge2Nx2N(TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU DEBUG_STRING_FN_DECLARE(sDebug), Bool* earlyDetectionSkipMode, Bool bUseSkip)
 #else
@@ -2042,12 +1533,12 @@ Void TEncCu::xCheckRDCostIntra(TComDataCU*& rpcBestCU,
 
 
 /** Check R-D costs for a CU with PCM mode.
-* \param rpcBestCU pointer to best mode CU data structure
-* \param rpcTempCU pointer to testing mode CU data structure
-* \returns Void
-*
-* \note Current PCM implementation encodes sample values in a lossless way. The distortion of PCM mode CUs are zero. PCM mode is selected if the best mode yields bits greater than that of PCM mode.
-*/
+ * \param rpcBestCU pointer to best mode CU data structure
+ * \param rpcTempCU pointer to testing mode CU data structure
+ * \returns Void
+ *
+ * \note Current PCM implementation encodes sample values in a lossless way. The distortion of PCM mode CUs are zero. PCM mode is selected if the best mode yields bits greater than that of PCM mode.
+ */
 Void TEncCu::xCheckIntraPCM(TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU)
 {
 	if (getFastDeltaQp())
@@ -2100,10 +1591,10 @@ Void TEncCu::xCheckIntraPCM(TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU)
 }
 
 /** check whether current try is the best with identifying the depth of current try
-* \param rpcBestCU
-* \param rpcTempCU
-* \param uiDepth
-*/
+ * \param rpcBestCU
+ * \param rpcTempCU
+ * \param uiDepth
+ */
 Void TEncCu::xCheckBestMode(TComDataCU*& rpcBestCU, TComDataCU*& rpcTempCU, UInt uiDepth DEBUG_STRING_FN_DECLARE(sParent) DEBUG_STRING_FN_DECLARE(sTest) DEBUG_STRING_PASS_INTO(Bool bAddSizeInfo))
 {
 	if (rpcTempCU->getTotalCost() < rpcBestCU->getTotalCost())
@@ -2195,9 +1686,9 @@ Void TEncCu::xCopyYuv2Tmp(UInt uiPartUnitIdx, UInt uiNextDepth)
 }
 
 /** Function for filling the PCM buffer of a CU using its original sample array
-* \param pCU pointer to current CU
-* \param pOrgYuv pointer to original sample array
-*/
+ * \param pCU pointer to current CU
+ * \param pOrgYuv pointer to original sample array
+ */
 Void TEncCu::xFillPCMBuffer(TComDataCU* pCU, TComYuv* pOrgYuv)
 {
 	const ChromaFormat format = pCU->getPic()->getChromaFormat();
@@ -2229,7 +1720,7 @@ Void TEncCu::xFillPCMBuffer(TComDataCU* pCU, TComYuv* pOrgYuv)
 
 #if ADAPTIVE_QP_SELECTION
 /** Collect ARL statistics from one block
-*/
+  */
 Int TEncCu::xTuCollectARLStats(TCoeff* rpcCoeff, TCoeff* rpcArlCoeff, Int NumCoeffInCU, Double* cSum, UInt* numSamples)
 {
 	for (Int n = 0; n < NumCoeffInCU; n++)
